@@ -1,0 +1,23 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35327.3
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "代理模型", "代理模型.pyproj", "{636306FA-65A8-45A2-9B4E-0DEAB2468ACF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{636306FA-65A8-45A2-9B4E-0DEAB2468ACF}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{636306FA-65A8-45A2-9B4E-0DEAB2468ACF}.Release|Any CPU.ActiveCfg = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {8820A83C-DCF8-4AA9-B874-9C003B7FA826}
+	EndGlobalSection
+EndGlobal
