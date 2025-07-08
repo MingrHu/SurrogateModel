@@ -17,10 +17,9 @@ y_force = df['Max_Forming_Force']
 y_load = df['Die_Load']
 
 # 3. 划分数据集（80%训练，20%测试）
-X_train, X_test, y_force_train, y_force_test = train_test_split(
-    X, y_force, test_size=0.2, random_state=42)
-_, _, y_load_train, y_load_test = train_test_split(
-    X, y_load, test_size=0.2, random_state=42)
+X_train, X_test, y_force_train, y_force_test, y_load_train, y_load_test = train_test_split(
+    X, y_force, y_load, test_size=0.2, random_state=42
+)
 
 # 4. 最大成形力模型
 force_model = LinearRegression()

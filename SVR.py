@@ -8,7 +8,7 @@ from sklearn.metrics import r2_score
 from sklearn.preprocessing import StandardScaler
 
 # 1. 数据加载与预处理
-df = pd.read_csv('C:\\Users\\16969\\Desktop\\2025-07-03-10-33-32-RES.txt', sep='\t', header=None)
+df = pd.read_csv('C:\\Users\\Hmr\\Desktop\\2025-07-03-10-33-32-RES.txt', sep='\t', header=None)
 df.columns = ['Index', 'Workpiece_Temp', 'Upper_Die_Temp', 'Lower_Die_Temp', 
               'Forming_Speed', 'Max_Forming_Force', 'Die_Load']
 
@@ -17,42 +17,45 @@ X = df[['Workpiece_Temp', 'Upper_Die_Temp', 'Lower_Die_Temp', 'Forming_Speed']]
 y_force = df['Max_Forming_Force']
 y_load = df['Die_Load']
 
-# 3. 数据标准化（SVR对特征尺度敏感）
+# 3. 划分数据集（确保训练集和测试集的划分一致）
+X_train, X_test, y_force_train, y_force_test, y_load_train, y_load_test = train_test_split(
+    X, y_force, y_load, test_size=0.2, random_state=42
+)
+
+# 4. 数据标准化（仅对训练集拟合，避免数据泄露）
 scaler_X = StandardScaler()
+X_train_scaled = scaler_X.fit_transform(X_train)
+X_test_scaled = scaler_X.transform(X_test)  # 注意：测试集只用transform，不用fit_transform
+
 scaler_y_force = StandardScaler()
+y_force_train_scaled = scaler_y_force.fit_transform(y_force_train.values.reshape(-1, 1)).ravel()
+y_force_test_scaled = scaler_y_force.transform(y_force_test.values.reshape(-1, 1)).ravel()
+
 scaler_y_load = StandardScaler()
-
-X_scaled = scaler_X.fit_transform(X)
-y_force_scaled = scaler_y_force.fit_transform(y_force.values.reshape(-1, 1)).ravel()
-y_load_scaled = scaler_y_load.fit_transform(y_load.values.reshape(-1, 1)).ravel()
-
-# 4. 划分数据集
-X_train, X_test, y_force_train, y_force_test = train_test_split(
-    X_scaled, y_force_scaled, test_size=0.2, random_state=42)
-_, _, y_load_train, y_load_test = train_test_split(
-    X_scaled, y_load_scaled, test_size=0.2, random_state=42)
+y_load_train_scaled = scaler_y_load.fit_transform(y_load_train.values.reshape(-1, 1)).ravel()
+y_load_test_scaled = scaler_y_load.transform(y_load_test.values.reshape(-1, 1)).ravel()
 
 # 5. 最大成形力模型（SVR）
 force_model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
-force_model.fit(X_train, y_force_train)
-force_pred_scaled = force_model.predict(X_test)
+force_model.fit(X_train_scaled, y_force_train_scaled)
+force_pred_scaled = force_model.predict(X_test_scaled)
 force_pred = scaler_y_force.inverse_transform(force_pred_scaled.reshape(-1, 1)).ravel()  # 反标准化
 
-# 计算R²（需反标准化后计算）
+# 计算R²（在反标准化后的尺度上计算）
 force_r2 = r2_score(
-    scaler_y_force.inverse_transform(y_force_test.reshape(-1, 1)), 
+    scaler_y_force.inverse_transform(y_force_test_scaled.reshape(-1, 1)), 
     scaler_y_force.inverse_transform(force_pred_scaled.reshape(-1, 1))
 )
 
 # 6. 模具载荷模型（SVR）
 load_model = SVR(kernel='rbf', C=1.0, epsilon=0.1)
-load_model.fit(X_train, y_load_train)
-load_pred_scaled = load_model.predict(X_test)
+load_model.fit(X_train_scaled, y_load_train_scaled)
+load_pred_scaled = load_model.predict(X_test_scaled)
 load_pred = scaler_y_load.inverse_transform(load_pred_scaled.reshape(-1, 1)).ravel()  # 反标准化
 
 # 计算R²
 load_r2 = r2_score(
-    scaler_y_load.inverse_transform(y_load_test.reshape(-1, 1)), 
+    scaler_y_load.inverse_transform(y_load_test_scaled.reshape(-1, 1)), 
     scaler_y_load.inverse_transform(load_pred_scaled.reshape(-1, 1))
 )
 
@@ -65,15 +68,15 @@ joblib.dump(scaler_y_force, 'models/SVR/scaler_y_force.pkl')
 joblib.dump(scaler_y_load, 'models/SVR/scaler_y_load.pkl')
 
 # 8. 输出结果（反标准化后的实际值和预测值）
-y_force_test_actual = scaler_y_force.inverse_transform(y_force_test.reshape(-1, 1)).ravel()
-y_load_test_actual = scaler_y_load.inverse_transform(y_load_test.reshape(-1, 1)).ravel()
+y_force_test_actual = scaler_y_force.inverse_transform(y_force_test_scaled.reshape(-1, 1)).ravel()
+y_load_test_actual = scaler_y_load.inverse_transform(y_load_test_scaled.reshape(-1, 1)).ravel()
 
-print("=== 最大成形力模型（SVR）===")
+print("=== 最大成形力MPa ===")
 print(f"R²分数: {force_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
 print(pd.DataFrame({'实际值': y_force_test_actual[:5], '预测值': force_pred[:5]}))
 
-print("\n=== 模具载荷模型（SVR）===")
+print("\n=== 模具载荷N ===")
 print(f"R²分数: {load_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
 print(pd.DataFrame({'实际值': y_load_test_actual[:5], '预测值': load_pred[:5]}))
