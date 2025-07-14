@@ -6,111 +6,154 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 from sklearn.metrics import r2_score
 import tensorflow as tf
-from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Dense, Dropout, BatchNormalization
+from tensorflow.keras.models import Model
+from tensorflow.keras.layers import Dense, Dropout, BatchNormalization, Input
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.callbacks import EarlyStopping, ReduceLROnPlateau
 
 # 1. 数据加载与预处理
-df = pd.read_csv('C:\\Users\\16969\\Desktop\\2025-07-03-10-33-32-RES.txt', sep='\t', header=None)
-df.columns = ['Index', 'Workpiece_Temp', 'Upper_Die_Temp', 'Lower_Die_Temp', 
-              'Forming_Speed', 'Max_Forming_Force', 'Die_Load']
+df = pd.read_csv('C:\\Users\\16969\\Desktop\\res.txt', sep='\t', header=None)
+df.columns = ['Index', 'Workpiece_Temp', 'Die_Temp', 'Forming_Speed', 
+              'STDV_grainSize', 'Die_Load']
 
 # 2. 特征与目标变量
-X = df[['Workpiece_Temp', 'Upper_Die_Temp', 'Lower_Die_Temp', 'Forming_Speed']]
-y_force = df['Max_Forming_Force'].values.reshape(-1, 1)
+X = df[['Workpiece_Temp', 'Die_Temp', 'Forming_Speed']]
+y_stdv = df['STDV_grainSize'].values.reshape(-1, 1)
 y_load = df['Die_Load'].values.reshape(-1, 1)
 
 # 3. 数据标准化
 scaler_X = StandardScaler()
 X_scaled = scaler_X.fit_transform(X)
-# 在数据预处理部分添加目标变量标准化
-scaler_y_force = StandardScaler()
-y_force_scaled = scaler_y_force.fit_transform(y_force)
+
+# 目标变量标准化
+scaler_y_stdv = StandardScaler()
+y_stdv_scaled = scaler_y_stdv.fit_transform(y_stdv)
 
 scaler_y_load = StandardScaler()
 y_load_scaled = scaler_y_load.fit_transform(y_load)
 
-
 # 4. 数据划分
-X_train, X_temp, y_train_force, y_temp_force, y_train_load, y_temp_load = train_test_split(
-    X_scaled, y_force_scaled, y_load_scaled, test_size=0.4, random_state=42
+X_train, X_temp, y_train_stdv, y_temp_stdv, y_train_load, y_temp_load = train_test_split(
+    X_scaled, y_stdv_scaled, y_load_scaled, test_size=0.2, random_state=42
 )
-X_val, X_test, y_val_force, y_test_force, y_val_load, y_test_load = train_test_split(
-    X_temp, y_temp_force, y_temp_load, test_size=0.5, random_state=42
+X_val, X_test, y_val_stdv, y_test_stdv, y_val_load, y_test_load = train_test_split(
+    X_temp, y_temp_stdv, y_temp_load, test_size=0.5, random_state=42
 )
 
-# 5. 定义 DNN 模型构建函数
-def build_dnn_model(input_dim):
-    model = Sequential([
-        Dense(64, activation='relu', input_dim=input_dim),  # 第1层：输入层+隐藏层
-        BatchNormalization(),                               # 第2层：批标准化
-        Dropout(0.2),                                       # 第3层：Dropout
-        Dense(32, activation='relu'),                       # 第4层：隐藏层
-        BatchNormalization(),                               # 第5层：批标准化
-        Dropout(0.1),                                       # 第6层：Dropout
-        Dense(1)                                            # 第7层：输出层（线性激活）
-    ])
-    optimizer = Adam(learning_rate=0.001)
-    model.compile(optimizer=optimizer, loss='mse', metrics=['mae'])
+# 5. 定义多输出DNN模型构建函数
+def build_multi_output_dnn(input_dim):
+    # 输入层
+    inputs = Input(shape=(input_dim,))
+    
+    # 共享特征提取层
+    x = Dense(64, activation='relu')(inputs)
+    x = BatchNormalization()(x)
+    x = Dropout(0.2)(x)
+    
+    x = Dense(32, activation='relu')(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.1)(x)
+    
+    # 创建两个独立输出分支
+    # 分支1: 预测晶粒尺寸标准差
+    out1 = Dense(16, activation='relu')(x)
+    out1 = Dense(1, name='grain_size')(out1)  # 线性输出
+    
+    # 分支2: 预测模具载荷
+    out2 = Dense(16, activation='relu')(x)
+    out2 = Dense(1, name='mold_load')(out2)  # 线性输出
+    
+    # 构建多输出模型
+    model = Model(inputs=inputs, outputs=[out1, out2])
+    
+    # 编译模型
+    model.compile(
+        optimizer=Adam(learning_rate=0.001),
+        loss={'grain_size': 'mse', 'mold_load': 'mse'},
+        metrics={'grain_size': 'mae', 'mold_load': 'mae'},
+        loss_weights=[0.5, 0.5]  # 平衡两个任务的损失
+    )
     return model
 
-# 6. 训练最大成形力模型（显式使用验证集）
-force_model = build_dnn_model(input_dim=X_train.shape[1])
+# 6. 创建并训练多输出模型
+multi_output_model = build_multi_output_dnn(input_dim=X_train.shape[1])
+
 callbacks = [
-    # patience 表示15轮训练损失没有下降就停止
-    EarlyStopping(monitor='val_loss', patience = 15, restore_best_weights = True),  # 早停
-    ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5)  # 学习率衰减
+    EarlyStopping(monitor='val_loss', patience=15, restore_best_weights=True),
+    ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=5)
 ]
-history_force = force_model.fit(
-    X_train, y_train_force,
-    validation_data=(X_val, y_val_force),  # 显式传入验证集
-    epochs = 200,
-    batch_size = 32,
+
+# 训练模型 - 同时使用两个目标
+history = multi_output_model.fit(
+    X_train,
+    {'grain_size': y_train_stdv, 'mold_load': y_train_load},  # 双目标训练数据
+    validation_data=(
+        X_val,
+        {'grain_size': y_val_stdv, 'mold_load': y_val_load}  # 双目标验证数据
+    ),
+    epochs=200,
+    batch_size=32,
     callbacks=callbacks,
     verbose=1
 )
 
-# 7. 训练模具载荷模型
-load_model = build_dnn_model(input_dim=X_train.shape[1])
-history_load = load_model.fit(
-    X_train, y_train_load,          # 训练数据和标签
-    validation_data=(X_val, y_val_load),  # 验证数据和标签
-    epochs = 200,                   # 训练轮数
-    batch_size = 32,                # 每个批次的样本数
-    callbacks=callbacks,            # 回调函数列表
-    verbose=1                       # 日志输出级别
-)
-
-# 预测时输出标准化后的值
-force_pred_scaled = force_model.predict(X_test).ravel()
-load_pred_scaled = load_model.predict(X_test).ravel()
+# 7. 预测
+# 多输出模型的预测结果是两个数组
+predictions = multi_output_model.predict(X_test)
+stdv_pred_scaled, load_pred_scaled = predictions
 
 # 反标准化预测值
-force_pred = scaler_y_force.inverse_transform(force_pred_scaled.reshape(-1, 1)).ravel()
-load_pred = scaler_y_load.inverse_transform(load_pred_scaled.reshape(-1, 1)).ravel()
+stdv_pred = scaler_y_stdv.inverse_transform(stdv_pred_scaled)
+load_pred = scaler_y_load.inverse_transform(load_pred_scaled)
 
-# 计算R²分数（实际值和预测值均在原始尺度上）
-fact_force = scaler_y_force.inverse_transform(y_test_force.reshape(-1, 1)).ravel()
-fact_load = scaler_y_load.inverse_transform(y_test_load.reshape(-1, 1)).ravel()
-force_r2 = r2_score(fact_force, force_pred)
+# 反标准化实际值
+fact_stdv = scaler_y_stdv.inverse_transform(y_test_stdv)
+fact_load = scaler_y_load.inverse_transform(y_test_load)
+
+# 计算R²分数
+stdv_r2 = r2_score(fact_stdv, stdv_pred)
 load_r2 = r2_score(fact_load, load_pred)
 
-# 9. 保存模型和标准化器
+# 8. 保存模型和标准化器
 os.makedirs("models/DNN_Optimized", exist_ok=True)
-force_model.save('models/DNN_Optimized/forming_force_model.keras')
-load_model.save('models/DNN_Optimized/die_load_model.keras')
+multi_output_model.save('models/DNN_Optimized/multi_output_model.keras')
 joblib.dump(scaler_X, 'models/DNN_Optimized/scaler_X.pkl')
-joblib.dump(scaler_y_force,'models/DNN_Optimized/scaler_y_force.pkl')
-joblib.dump(scaler_y_load,'models/DNN_Optimized/scaler_y_load.pkl')
+joblib.dump(scaler_y_stdv, 'models/DNN_Optimized/scaler_y_stdv.pkl')
+joblib.dump(scaler_y_load, 'models/DNN_Optimized/scaler_y_load.pkl')
 
-# 10. 输出结果
-print("=== 最大成形应力模型N ===")
-print(f"R²分数: {force_r2:.4f}")
+# 9. 输出结果
+print("\n=== 晶粒尺寸标准差模型 ===")
+print(f"R²分数: {stdv_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
-print(pd.DataFrame({'实际值': fact_force[:5], '预测值': force_pred[:5]}))
+for i in range(5):
+    print(f"实际值: {fact_stdv[i][0]:.4f}, 预测值: {stdv_pred[i][0]:.4f}")
 
-print("\n=== 模具载荷模型MPa ===")
+print("\n=== 模具载荷模型 ===")
 print(f"R²分数: {load_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
-print(pd.DataFrame({'实际值': fact_load[:5], '预测值': load_pred[:5]}))
+for i in range(5):
+    print(f"实际值: {fact_load[i][0]:.4f}, 预测值: {load_pred[i][0]:.4f}")
+
+# # 10. 可选：保存训练历史图
+# import matplotlib.pyplot as plt
+
+# plt.figure(figsize=(12, 6))
+# plt.subplot(1, 2, 1)
+# plt.plot(history.history['grain_size_loss'], label='训练损失')
+# plt.plot(history.history['val_grain_size_loss'], label='验证损失')
+# plt.title('晶粒尺寸标准差损失')
+# plt.xlabel('Epochs')
+# plt.ylabel('Loss')
+# plt.legend()
+
+# plt.subplot(1, 2, 2)
+# plt.plot(history.history['mold_load_loss'], label='训练损失')
+# plt.plot(history.history['val_mold_load_loss'], label='验证损失')
+# plt.title('模具载荷损失')
+# plt.xlabel('Epochs')
+# plt.ylabel('Loss')
+# plt.legend()
+
+# plt.tight_layout()
+# plt.savefig('models/DNN_Optimized/training_history.png')
+# plt.show()

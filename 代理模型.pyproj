@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>636306fa-65a8-45a2-9b4e-0deab2468acf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>PolynomialPRG.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
