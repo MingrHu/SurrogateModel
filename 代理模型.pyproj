@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>636306fa-65a8-45a2-9b4e-0deab2468acf</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>SVR.py</StartupFile>
+    <StartupFile>PolynomialPRG.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -21,11 +21,16 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="KNN.py" />
+    <Compile Include="data.py" />
+    <Compile Include="GAproblem.py" />
+    <Compile Include="KrigingGPR.py" />
     <Compile Include="Linear Regression.py" />
+    <Compile Include="main.py" />
     <Compile Include="Neural Network.py" />
+    <Compile Include="PolynomialPRG.py" />
     <Compile Include="Random Forest.py" />
     <Compile Include="SVR.py" />
+    <Compile Include="utils.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
