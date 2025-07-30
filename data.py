@@ -13,5 +13,5 @@
 
 if __name__ == "__main__":
 
-    datasolver("C:\\Users\\16969\\Desktop\\2025-07-12-18-52-23-RES.txt",
+    datasolver("C:\\Users\\16969\\Desktop\\2025-07-26-21-27-12-RES.txt",
                "C:\\Users\\16969\\Desktop\\res.txt")

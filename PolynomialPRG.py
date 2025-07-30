@@ -43,7 +43,7 @@ degree = 2  # 多项式阶数
 #         stdv_pred = test_stdv_model.predict(X_test)
 #         load_pred = test_load_model.predict(X_test)
 #         R2_stdv,R2_load = r2_score(y_stdv_test,stdv_pred),r2_score(y_load_test, load_pred)
-#         print(f"最高次系数为{i+1}  应力模型r2 = {R2_stdv},载荷模型r2 = {R2_load}")
+#         print(f"最高次系数为{i+1}  晶粒标准差r2 = {R2_stdv},载荷模型r2 = {R2_load}")
 
 # 晶粒尺寸标准差模型
 stdv_model = make_pipeline(PolynomialFeatures(degree, include_bias=False), 
@@ -66,6 +66,7 @@ joblib.dump(load_model, 'models/PRG/die_load_model.pkl')
 
 # 6. 输出结果
 
+print("\n=== 晶粒尺寸标准差模型 ===")
 print(f"多项式阶数: {degree}")
 print(f"R²分数: {stdv_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
@@ -76,3 +77,7 @@ print(f"多项式阶数: {degree}")
 print(f"R²分数: {load_r2:.4f}")
 print("\n实际值 vs. 预测值（前5行）:")
 print(pd.DataFrame({'实际值': y_load_test.head(5), '预测值': load_pred[:5]}))
+
+# if __name__ == "__main__":
+    
+    # assesment(6)
